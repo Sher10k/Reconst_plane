@@ -28,6 +28,8 @@ PKGCONFIG   *= eigen3
 PKGCONFIG   *= metslib
 PKGCONFIG   *= zcm
 
-INCLUDEPATH += /usr/local/include/vtk-8.0
+INCLUDEPATH += /usr/local/include/vtk-8.0 \
+               ../zcm_types/camera_basler/cpp_types \
+               ../zcm_types/service/cpp_types
 
 HEADERS +=  
