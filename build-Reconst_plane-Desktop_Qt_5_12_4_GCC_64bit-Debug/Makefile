@@ -52,8 +52,10 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-SOURCES       = ../main.cpp 
-OBJECTS       = main.o
+SOURCES       = ../Source/sfm_train.cpp \
+		../main.cpp 
+OBJECTS       = sfm_train.o \
+		main.o
 DIST          = ../../../../Qt/5.12.4/gcc_64/mkspecs/features/spec_pre.prf \
 		../../../../Qt/5.12.4/gcc_64/mkspecs/common/unix.conf \
 		../../../../Qt/5.12.4/gcc_64/mkspecs/common/linux.conf \
@@ -247,7 +249,8 @@ DIST          = ../../../../Qt/5.12.4/gcc_64/mkspecs/features/spec_pre.prf \
 		../../../../Qt/5.12.4/gcc_64/mkspecs/features/exceptions.prf \
 		../../../../Qt/5.12.4/gcc_64/mkspecs/features/yacc.prf \
 		../../../../Qt/5.12.4/gcc_64/mkspecs/features/lex.prf \
-		../../Reconst_plane.pro  ../main.cpp
+		../../Reconst_plane.pro ../Header/sfm_train.h ../Source/sfm_train.cpp \
+		../main.cpp
 QMAKE_TARGET  = Reconst_plane
 DESTDIR       = 
 TARGET        = Reconst_plane
@@ -663,7 +666,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents ../../../Qt/5.12.4/gcc_64/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../main.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../Header/sfm_train.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../Source/sfm_train.cpp ../main.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -711,10 +715,14 @@ compiler_clean: compiler_moc_predefs_clean
 
 ####### Compile
 
+sfm_train.o: ../Source/sfm_train.cpp ../Header/sfm_train.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o sfm_train.o ../Source/sfm_train.cpp
+
 main.o: ../main.cpp ../../zcm_types/camera_basler/cpp_types/ZcmCameraBaslerJpegFrame.hpp \
 		../../zcm_types/camera_basler/cpp_types/ZcmCameraBaslerInformation.hpp \
 		../../zcm_types/camera_basler/cpp_types/ZcmCameraCalibratingParams.hpp \
-		../../zcm_types/service/cpp_types/ZcmService.hpp
+		../../zcm_types/service/cpp_types/ZcmService.hpp \
+		../Header/sfm_train.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../main.cpp
 
 ####### Install

@@ -15,6 +15,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+        Source/sfm_train.cpp \
         main.cpp
 
 # Default rules for deployment.
@@ -32,4 +33,5 @@ INCLUDEPATH += /usr/local/include/vtk-8.0 \
                ../zcm_types/camera_basler/cpp_types \
                ../zcm_types/service/cpp_types
 
-HEADERS +=  
+HEADERS +=   \
+    Header/sfm_train.h

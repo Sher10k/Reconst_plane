@@ -19,6 +19,7 @@
 #include <zcm/zcm-cpp.hpp>
 
 #include "ZcmCameraBaslerJpegFrame.hpp"
+#include "Header/sfm_train.h"
 
 using namespace std;
 using namespace cv;
@@ -80,30 +81,6 @@ struct Args
              << "  -i, --input_zcm=logfile              Input log to convert" << endl
              << "  -p, --params=parameters/folder       Folder of parameters" << endl
              << endl << endl;
-    }
-};
-
-class ReadStream {
-private:
-        //Приватное поле - файл
-    ifstream f;
-public:
-        //Конструктор, открывающий файл
-    ReadStream(const char *FileName)
-    {
-        f.open(FileName); 
-        if(!f.is_open()) cout<<"Файл не открыт";
-    }
-        //Метод чтения массива символов-байт с указанной позиции
-        //который возвращает этот массив
-    void read(  )
-    {
-        
-    }
-        //Деструктор, закрывающий файл
-    ~ReadStream()
-    {
-        f.close(); 
     }
 };
 
@@ -172,8 +149,11 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
 //    for ( auto i : zcm_list )
 //        cout << "\t" << i << endl;
     
+    Size imageSize = Size( img[0].cols, img[0].rows );
+    
     
 // --- Read camera internal settings
+    cout << endl << " --- --- READ camera options" << endl;
     Matx < double, 3, 3 > mtx[2];
     Matx < double, 1, 5 > dist[2];
     Matx < double, 3, 4 > projection[2];
@@ -181,7 +161,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     Rect ROI[2];
     
 // --- Left camera options
-    cout << endl << " --- LEFT camera" << endl;
+    cout << " --- LEFT camera" << endl;
         // Camera matrix
     fstream file_params( parametersDir + "mtx.csv" );
     if ( !file_params.is_open() )
@@ -308,17 +288,58 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     ROI[1].height   = int(a4);
     cout << "ROIL = " << endl << ROI[1] << endl;
     file_params.close();
-        
+    cout << " --- --- END READ camera options" << endl;
     
 // --- Stereo rectify
+    cout << endl << " --- --- STEREO RECTIFY" << endl;
     Mat rmap[2][2];
     Mat imgRemap[2];
+    Mat K[2], R, t, Rct[2], P[2], Q;
+    Rect validRoi[2];
+
+// --- SFM
+    mtx[0](0, 2) = 772;
+    mtx[0](1, 2) = 1050;
+    SFM_Reconstruction sterio_sfm( &img[0] );
+    sterio_sfm.Reconstruction3D( &img[1], &img[0], mtx[0] );
+    //sterio_sfm.Reconstruction3DopticFlow( &img[1], &img[0], mtx[0] );
+    sterio_sfm.R.copyTo( R );
+    sterio_sfm.t.copyTo( t );            
+    
+//    ZcmCameraCalibratingParams zcm_calib;
+//    float K1[3][3];
+//    cout << "K1= " << endl;
+//    for ( int i = 0; i < 3; i++ )
+//    {
+//        for ( int j = 0; j < 3; j++)
+//            cout << zcm_calib.cam_mtx[j][i] << "\t\t";
+//        cout << endl;
+//    }   
+//    decomposeProjectionMatrix( projection[0], 
+//                               K[0], R[0], T[0] );
+//    cout << "K_L= " << endl << K[0] << endl
+//         << "R_L= " << endl << R[0] << endl
+//         << "T_L= " << endl << T[0] << endl;
+//    decomposeProjectionMatrix( projection[1], 
+//                               K[1], R[1], T[1] );
+//    cout << "K_R= " << endl << K[1] << endl
+//         << "R_R= " << endl << R[1] << endl
+//         << "T_R= " << endl << T[1] << endl;
+    stereoRectify( mtx[0], dist[0], 
+                   mtx[1], dist[1], 
+                   imageSize, 
+                   R.inv(), t, 
+                   Rct[0], Rct[1], P[0], P[1], Q, 
+                   CALIB_ZERO_DISPARITY, -1, 
+                   imageSize, 
+                   &validRoi[0], 
+                   &validRoi[1] );
     for (unsigned i = 0; i < 2; i++)
     {
         initUndistortRectifyMap( mtx[i], dist[i], 
-                                 rectification[i], 
-                                 projection[i], 
-                                 Size( img[i].cols, img[i].rows ), 
+                                 Rct[i],  // Rct[i], rectification[i]
+                                 P[i],     // P[i], projection[i]
+                                 imageSize, 
                                  CV_32FC1, 
                                  rmap[i][0], rmap[i][1] );
         remap( img[i], 
@@ -327,8 +348,8 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
                rmap[i][1], 
                INTER_LINEAR );
     }
-    imwrite( "Remap_frame_L.jpg", imgRemap[0]);
-    imwrite( "Remap_frame_R.jpg", imgRemap[1]);
+    imwrite( "Remap_frame_L.jpg", imgRemap[0] );
+    imwrite( "Remap_frame_R.jpg", imgRemap[1] );
     
     Mat frameLR = Mat( imgRemap[0].rows, imgRemap[0].cols + imgRemap[1].cols, imgRemap[0].type() );
     Rect r1(0, 0, imgRemap[0].cols, imgRemap[0].rows);
@@ -344,7 +365,9 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     imwrite( "Remap_frame_LR.jpg", frameLR );
     
     cout << " --- Same left & right rectify files saved" << endl;
+    cout << " --- --- END STEREO RECTIFY" << endl;
     
+
     
     
     return 0;

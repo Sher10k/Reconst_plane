@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 4.9.2, 2019-08-23T10:49:28. -->
+<!-- Written by QtCreator 4.9.2, 2019-08-23T17:48:26. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -306,8 +306,7 @@
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Reconst_plane</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:/home/roman/Reconst_plane/Reconst_plane/Reconst_plane.pro</value>
-    <value type="QString" key="RunConfiguration.Arguments">-i ../video_plane/534_train_1908212042.zcm.0 -p ../calibration_parameters/initrics/22500062/
-</value>
+    <value type="QString" key="RunConfiguration.Arguments">-i ~/Reconst_plane/video_plane/534_train_1908212042.zcm.0 -p ~/Reconst_plane/calibration_parameters/initrics/22500062/2019.07.02/ </value>
     <value type="uint" key="RunConfiguration.QmlDebugServerPort">3768</value>
     <value type="bool" key="RunConfiguration.UseCppDebugger">false</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
