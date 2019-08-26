@@ -135,7 +135,7 @@ void SFM_Reconstruction::Reconstruction3D(Mat *data_frame1, Mat *data_frame2, Ma
             }
             
             FileStorage SFM_Result;
-            SFM_Result.open("SFM_Result.txt", FileStorage::WRITE);
+            SFM_Result.open( "SFM_Result.txt", FileStorage::WRITE );
             SFM_Result << "E" << E;
             SFM_Result << "F" << F;
             //SFM_Result << "points1" << points1;

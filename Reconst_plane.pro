@@ -1,6 +1,6 @@
 QT -= gui
 
-CONFIG += c++11 console
+CONFIG += c++14 console
 CONFIG -= app_bundle
 
 # The following define makes your compiler emit warnings if you use
@@ -32,6 +32,41 @@ PKGCONFIG   *= zcm
 INCLUDEPATH += /usr/local/include/vtk-8.0 \
                ../zcm_types/camera_basler/cpp_types \
                ../zcm_types/service/cpp_types
+
+# for PCL
+PKGCONFIG   += pcl_2d-1.9
+PKGCONFIG   += pcl_common-1.9
+PKGCONFIG   += pcl_features-1.9
+PKGCONFIG   += pcl_filters-1.9
+PKGCONFIG   += pcl_geometry-1.9
+PKGCONFIG   += pcl_io-1.9
+PKGCONFIG   += pcl_kdtree-1.9
+PKGCONFIG   += pcl_keypoints-1.9
+PKGCONFIG   += pcl_ml-1.9
+PKGCONFIG   += pcl_octree-1.9
+PKGCONFIG   += pcl_outofcore-1.9
+PKGCONFIG   += pcl_people-1.9
+PKGCONFIG   += pcl_recognition-1.9
+PKGCONFIG   += pcl_registration-1.9
+PKGCONFIG   += pcl_sample_consensus-1.9
+PKGCONFIG   += pcl_search-1.9
+PKGCONFIG   += pcl_segmentation-1.9
+PKGCONFIG   += pcl_stereo-1.9
+PKGCONFIG   += pcl_surface-1.9
+PKGCONFIG   += pcl_tracking-1.9
+PKGCONFIG   += pcl_visualization-1.9
+
+INCLUDEPATH += /usr/local/include/vtk-8.0
+
+LIBS += -lboost_system \
+        -lvtkCommonCore-8.0 \
+        -lvtkRenderingCore-8.0 \
+        -lvtkCommonDataModel-8.0  \
+        -lvtkCommonMath-8.0 \
+        -lvtkFiltersSources-8.0 \
+        -lvtkCommonExecutionModel-8.0 \
+        -lvtkRenderingLOD-8.0
+
 
 HEADERS +=   \
     Header/sfm_train.h

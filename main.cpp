@@ -18,6 +18,18 @@
 #include <zcm/zcm.h>
 #include <zcm/zcm-cpp.hpp>
 
+#include <pcl/io/io.h>
+#include <pcl/io/pcd_io.h>
+//#include <pcl/impl/point_types.hpp>
+//#include <pcl/console/parse.h>
+//#include <pcl/features/normal_3d.h>
+#include <pcl/visualization/common/common.h>
+//#include <pcl/common/common_headers.h>
+#include <pcl/visualization/pcl_visualizer.h>
+//#include <pcl/visualization/cloud_viewer.h>
+
+#include <boost/thread/thread.hpp>
+
 #include "ZcmCameraBaslerJpegFrame.hpp"
 #include "Header/sfm_train.h"
 
@@ -25,6 +37,7 @@ using namespace std;
 using namespace cv;
 using namespace Eigen;
 using namespace zcm;
+using namespace pcl;
 
 struct Args
 {
@@ -329,7 +342,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
                    mtx[1], dist[1], 
                    imageSize, 
                    R.inv(), t, 
-                   Rct[0], Rct[1], P[0], P[1], Q, 
+                   Rct[0], Rct[1], P[0], P[1], Q,   // output
                    CALIB_ZERO_DISPARITY, -1, 
                    imageSize, 
                    &validRoi[0], 
@@ -365,9 +378,98 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     imwrite( "Remap_frame_LR.jpg", frameLR );
     
     cout << " --- Same left & right rectify files saved" << endl;
+    
+// --- Depth map
+    Ptr < StereoSGBM > sbm = StereoSGBM::create( 0,                         // minDisparity
+                                                 128,                       // numDisparities
+                                                 17,                        // blockSize
+                                                 0,                         // P1
+                                                 0,                         // P2
+                                                 0,                         // disp12MaxDiff
+                                                 0,                         // preFilterCap
+                                                 0,                         // uniquenessRatio
+                                                 0,                         // speckleWindowSize
+                                                 0,                         // speckleRange
+                                                 StereoSGBM::MODE_SGBM );   // mode
+    
+    Mat imgGrey[2]; 
+    cvtColor( img[0], imgGrey[0], COLOR_BGR2GRAY);
+    cvtColor( img[1], imgGrey[1], COLOR_BGR2GRAY);
+    
+    
+    
+    Mat imgDisp_bm;
+    sbm->compute( imgGrey[0], imgGrey[1], imgDisp_bm );
+    
+    double minVal; double maxVal;
+    minMaxLoc( imgDisp_bm, &minVal, &maxVal );
+    Mat imgDispNorm_bm;
+    imgDisp_bm.convertTo( imgDispNorm_bm, CV_8UC1, 255/(maxVal - minVal) );
+    imwrite( "BM.jpeg", imgDispNorm_bm );
+    cout << " --- ImgDispBM files saved" << endl;
+    
+// --- reconstruct 3D points
+    Mat points3D;
+    reprojectImageTo3D( imgDisp_bm, points3D, Q, false );
+    //cout << "Point3D = " << endl << points3D << endl;
+    FileStorage Stereo_3D;
+    Stereo_3D.open( "Stereo_3D.txt", FileStorage::WRITE );
+    Stereo_3D << "Point3D" << points3D;
+    Stereo_3D.release();
+    
     cout << " --- --- END STEREO RECTIFY" << endl;
     
-
+// --- 3D visual
+    PointCloud < PointXYZ > cloud;
+    PointCloud < PointXYZ > ::Ptr cloud2 ( new PointCloud < PointXYZ > );
+    boost::shared_ptr < visualization::PCLVisualizer > viewer ( new visualization::PCLVisualizer ("3D Viewer") );
+    
+    viewer->setBackgroundColor(0, 0, 0);
+    viewer->addCoordinateSystem(1.0, "global");
+    
+    cloud.height = 1;
+    cloud.width = static_cast<unsigned int>( points3D.cols * points3D.rows );
+    cloud.is_dense = false;
+    cloud.points.resize( cloud.width * cloud.height );
+    
+//    Mat_< Vec3f > XYZ( imgDisp_bm.rows, imgDisp_bm.cols );   // Output point cloud
+//    Mat_< float > vec_tmp(4,1);
+//    size_t nk = 0;
+//    for(int y = 0; y < imgDisp_bm.rows; ++y) 
+//    {
+//        for(int x = 0; x < imgDisp_bm.cols; ++x) 
+//        {
+//            vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=imgDisp_bm.at< float >(y,x); vec_tmp(3)=1;
+//            vec_tmp = Q*vec_tmp;
+//            vec_tmp /= vec_tmp(3);
+////            Vec3f &point = XYZ.at< Vec3f >(y,x);
+////            point[0] = vec_tmp(0);
+////            point[1] = vec_tmp(1);
+////            point[2] = vec_tmp(2);
+//            cloud.points[nk].x = vec_tmp(0);
+//            cloud.points[nk].y = vec_tmp(1);
+//            cloud.points[nk].z = vec_tmp(2);
+//        }
+//    }
+    
+    
+    for (size_t i = 0; i < cloud.points.size(); ++i)
+    {
+        cloud.points[i].x = points3D.at< Vec3f >(i)(0);
+        cloud.points[i].y = points3D.at< Vec3f >(i)(1);
+        cloud.points[i].z = points3D.at< Vec3f >(i)(2);
+//        cloud.points[i].r = static_cast< uint8_t >( MySFM.points3D_BGR.at(i)[2] );
+//        cloud.points[i].g = static_cast< uint8_t >( MySFM.points3D_BGR.at(i)[1] );
+//        cloud.points[i].b = static_cast< uint8_t >( MySFM.points3D_BGR.at(i)[0] );
+    }
+    
+    pcl::io::savePCDFileASCII ("Reconstruct_cloud.pcd", cloud);
+    pcl::io::loadPCDFile("Reconstruct_cloud.pcd", *cloud2);  // test_pcd.pcd
+    
+    viewer->addPointCloud< pcl::PointXYZ >( cloud2, "sample cloud0", 0 );
+    viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud0" );
+    
+    viewer->spin();
     
     
     return 0;
