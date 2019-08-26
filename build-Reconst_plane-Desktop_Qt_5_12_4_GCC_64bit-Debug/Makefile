@@ -16,8 +16,8 @@ CC            = gcc
 CXX           = g++
 DEFINES       = -DQT_DEPRECATED_WARNINGS -DQT_QML_DEBUG -DQT_CORE_LIB
 CFLAGS        = -pipe -g -Wall -W -D_REENTRANT -fPIC $(DEFINES)
-CXXFLAGS      = -pipe -g -std=gnu++11 -Wall -W -D_REENTRANT -fPIC $(DEFINES)
-INCPATH       = -I../../Reconst_plane -I. -isystem /usr/local/include/vtk-8.0 -I../../zcm_types/camera_basler/cpp_types -I../../zcm_types/service/cpp_types -isystem /usr/local/include/opencv4/opencv -isystem /usr/local/include/opencv4 -isystem /usr/include/eigen3 -isystem /usr/local/include/metslib-0.5 -I/usr/local/lib/metslib-0.5/include -isystem /usr/local/include -I../../../Qt/5.12.4/gcc_64/include -I../../../Qt/5.12.4/gcc_64/include/QtCore -I. -I../../../Qt/5.12.4/gcc_64/mkspecs/linux-g++
+CXXFLAGS      = -pipe -g -std=gnu++1y -Wall -W -D_REENTRANT -fPIC $(DEFINES)
+INCPATH       = -I../../Reconst_plane -I. -isystem /usr/local/include/vtk-8.0 -I../../zcm_types/camera_basler/cpp_types -I../../zcm_types/service/cpp_types -isystem /usr/local/include/vtk-8.0 -isystem /usr/local/include/opencv4/opencv -isystem /usr/local/include/opencv4 -isystem /usr/include/eigen3 -isystem /usr/local/include/metslib-0.5 -I/usr/local/lib/metslib-0.5/include -isystem /usr/local/include -isystem /usr/local/include/pcl-1.9 -I../../../Qt/5.12.4/gcc_64/include -I../../../Qt/5.12.4/gcc_64/include/QtCore -I. -I../../../Qt/5.12.4/gcc_64/mkspecs/linux-g++
 QMAKE         = /home/roman/Qt/5.12.4/gcc_64/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -40,7 +40,7 @@ DISTNAME      = Reconst_plane1.0.0
 DISTDIR = /home/roman/Reconst_plane/Reconst_plane/build-Reconst_plane-Desktop_Qt_5_12_4_GCC_64bit-Debug/.tmp/Reconst_plane1.0.0
 LINK          = g++
 LFLAGS        = -Wl,-rpath,/home/roman/Qt/5.12.4/gcc_64/lib
-LIBS          = $(SUBLIBS) -L/usr/local/lib -lopencv_gapi -lopencv_stitching -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_dnn_objdetect -lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hfs -lopencv_img_hash -lopencv_line_descriptor -lopencv_quality -lopencv_reg -lopencv_rgbd -lopencv_saliency -lopencv_sfm -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_superres -lopencv_optflow -lopencv_surface_matching -lopencv_tracking -lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_videostab -lopencv_video -lopencv_xfeatures2d -lopencv_shape -lopencv_ml -lopencv_ximgproc -lopencv_xobjdetect -lopencv_objdetect -lopencv_calib3d -lopencv_features2d -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_flann -lopencv_xphoto -lopencv_photo -lopencv_imgproc -lopencv_core -lzcm /home/roman/Qt/5.12.4/gcc_64/lib/libQt5Core.so -lpthread   
+LIBS          = $(SUBLIBS) -lboost_system -lvtkCommonCore-8.0 -lvtkRenderingCore-8.0 -lvtkCommonDataModel-8.0 -lvtkCommonMath-8.0 -lvtkFiltersSources-8.0 -lvtkCommonExecutionModel-8.0 -lvtkRenderingLOD-8.0 -L/usr/local/lib -lopencv_gapi -lopencv_stitching -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_dnn_objdetect -lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hfs -lopencv_img_hash -lopencv_line_descriptor -lopencv_quality -lopencv_reg -lopencv_rgbd -lopencv_saliency -lopencv_sfm -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_superres -lopencv_optflow -lopencv_surface_matching -lopencv_tracking -lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_videostab -lopencv_video -lopencv_xfeatures2d -lopencv_shape -lopencv_ml -lopencv_ximgproc -lopencv_xobjdetect -lopencv_objdetect -lopencv_calib3d -lopencv_features2d -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_flann -lopencv_xphoto -lopencv_photo -lopencv_imgproc -lopencv_core -lzcm -lpcl_keypoints -lpcl_outofcore -lpcl_people -lpcl_recognition -lpcl_registration -lpcl_segmentation -lpcl_features -lpcl_ml -lpcl_stereo -lpcl_surface -lpcl_tracking -lpcl_filters -lpcl_sample_consensus -lpcl_visualization -lpcl_io -lpcl_search -lpcl_kdtree -lflann_cpp -lpcl_octree -lpcl_common /home/roman/Qt/5.12.4/gcc_64/lib/libQt5Core.so -lpthread   
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -697,7 +697,7 @@ compiler_moc_predefs_make_all: moc_predefs.h
 compiler_moc_predefs_clean:
 	-$(DEL_FILE) moc_predefs.h
 moc_predefs.h: ../../../Qt/5.12.4/gcc_64/mkspecs/features/data/dummy.cpp
-	g++ -pipe -g -std=gnu++11 -Wall -W -dM -E -o moc_predefs.h ../../../Qt/5.12.4/gcc_64/mkspecs/features/data/dummy.cpp
+	g++ -pipe -g -std=gnu++1y -Wall -W -dM -E -o moc_predefs.h ../../../Qt/5.12.4/gcc_64/mkspecs/features/data/dummy.cpp
 
 compiler_moc_header_make_all:
 compiler_moc_header_clean:
