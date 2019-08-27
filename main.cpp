@@ -338,6 +338,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
 //    cout << "K_R= " << endl << K[1] << endl
 //         << "R_R= " << endl << R[1] << endl
 //         << "T_R= " << endl << T[1] << endl;
+    
     stereoRectify( mtx[0], dist[0], 
                    mtx[1], dist[1], 
                    imageSize, 
@@ -363,7 +364,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     }
     imwrite( "Remap_frame_L.jpg", imgRemap[0] );
     imwrite( "Remap_frame_R.jpg", imgRemap[1] );
-    
+        // Combine two images
     Mat frameLR = Mat( imgRemap[0].rows, imgRemap[0].cols + imgRemap[1].cols, imgRemap[0].type() );
     Rect r1(0, 0, imgRemap[0].cols, imgRemap[0].rows);
     Rect r2(imgRemap[0].cols, 0, imgRemap[1].cols, imgRemap[1].rows);
@@ -374,33 +375,55 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     for( int i = 0; i < frameLR.rows; i += 100 )
         for( int j = 0; j < frameLR.cols; j++ )
             frameLR.at< Vec3b >(i, j)[2] = 255;
-    
     imwrite( "Remap_frame_LR.jpg", frameLR );
-    
     cout << " --- Same left & right rectify files saved" << endl;
     
-// --- Depth map
+// --- DEPTH MAP
     Ptr < StereoSGBM > sbm = StereoSGBM::create( 0,                         // minDisparity
-                                                 128,                       // numDisparities
+                                                 256,                       // numDisparities must be divisible by 16
                                                  17,                        // blockSize
                                                  0,                         // P1
                                                  0,                         // P2
-                                                 0,                         // disp12MaxDiff
-                                                 0,                         // preFilterCap
-                                                 0,                         // uniquenessRatio
-                                                 0,                         // speckleWindowSize
-                                                 0,                         // speckleRange
+                                                 1,                         // disp12MaxDiff
+                                                 0,                         // prefilterCap
+                                                 10,                         // uniquenessRatio
+                                                 100,                         // speckleWindowSize
+                                                 32,                         // speckleRange
                                                  StereoSGBM::MODE_SGBM );   // mode
-    
     Mat imgGrey[2]; 
-    cvtColor( img[0], imgGrey[0], COLOR_BGR2GRAY);
-    cvtColor( img[1], imgGrey[1], COLOR_BGR2GRAY);
+    cvtColor( imgRemap[0], imgGrey[0], COLOR_BGR2GRAY);
+    cvtColor( imgRemap[1], imgGrey[1], COLOR_BGR2GRAY);
     
+//    Mat imgLine[2];
+//    vector< Vec4i > lines[2];
+//    Canny( imgRemap[0], imgGrey[0], 10, 50, 3, false );
+//    Canny( imgRemap[1], imgGrey[1], 10, 50, 3, false );
+//    imwrite( "Canny_frame_L.jpg", imgGrey[0] );
+//    imwrite( "Canny_frame_R.jpg", imgGrey[1] );
+//    HoughLinesP( imgGrey[0], lines[0], 1, CV_PI/180, 80, 30, 10 );
+//    cvtColor( imgGrey[0], imgLine[0], COLOR_GRAY2BGR);
+//    imgLine[0] *= 0;
+//    for( size_t i = 0; i < lines[0].size(); i++ )
+//    {
+//        line( imgLine[0], Point(lines[0][i][0], lines[0][i][1]),
+//        Point( lines[0][i][2], lines[0][i][3]), Scalar(0,0,255), 3, 8 );
+//    }
+//    HoughLinesP( imgGrey[1], lines[1], 1, CV_PI/180, 80, 30, 10 );
+//    cvtColor( imgGrey[1], imgLine[1], COLOR_GRAY2BGR);
+//    imgLine[1] *= 0;
+//    for( size_t i = 0; i < lines[1].size(); i++ )
+//    {
+//        line( imgLine[1], Point(lines[1][i][0], lines[1][i][1]),
+//        Point( lines[1][i][2], lines[1][i][3]), Scalar(0,0,255), 3, 8 );
+//    }
+//    imwrite( "Hough_frame_L.jpg", imgLine[0] );
+//    imwrite( "Hough_frame_R.jpg", imgLine[1] );
     
-    
+        // Calculate
     Mat imgDisp_bm;
     sbm->compute( imgGrey[0], imgGrey[1], imgDisp_bm );
-    
+    //sbm->compute( imgLine[0], imgLine[1], imgDisp_bm );
+        // Nomalization
     double minVal; double maxVal;
     minMaxLoc( imgDisp_bm, &minVal, &maxVal );
     Mat imgDispNorm_bm;
@@ -414,63 +437,119 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     //cout << "Point3D = " << endl << points3D << endl;
     FileStorage Stereo_3D;
     Stereo_3D.open( "Stereo_3D.txt", FileStorage::WRITE );
-    Stereo_3D << "Point3D" << points3D;
+    Stereo_3D << "Q" << Q;
+    Stereo_3D << "imgDispNorm_bm" << imgDispNorm_bm;
+    //Stereo_3D << "Point3D" << points3D;
     Stereo_3D.release();
-    
     cout << " --- --- END STEREO RECTIFY" << endl;
     
 // --- 3D visual
-    PointCloud < PointXYZ > cloud;
-    PointCloud < PointXYZ > ::Ptr cloud2 ( new PointCloud < PointXYZ > );
+    cout << endl << " --- --- 3D VIZUALIZATION" << endl;
+    PointCloud < PointXYZRGB > cloud;
+    PointCloud < PointXYZRGB > ::Ptr cloud2 ( new PointCloud < PointXYZRGB > );
     boost::shared_ptr < visualization::PCLVisualizer > viewer ( new visualization::PCLVisualizer ("3D Viewer") );
-    
-    viewer->setBackgroundColor(0, 0, 0);
-    viewer->addCoordinateSystem(1.0, "global");
-    
+        
+        // Calculate non zero elements in disparate map & creaye 3D points cloud
+    unsigned noZero = 0; 
+    for (size_t i = 0; i < imgDispNorm_bm.total(); i++ ) {
+            if ( imgDispNorm_bm.at< uchar >(int(i)) ) noZero++;
+        }
     cloud.height = 1;
-    cloud.width = static_cast<unsigned int>( points3D.cols * points3D.rows );
+    cloud.width = static_cast< unsigned int >( noZero );  // points3D.cols * points3D.rows
     cloud.is_dense = false;
     cloud.points.resize( cloud.width * cloud.height );
     
-//    Mat_< Vec3f > XYZ( imgDisp_bm.rows, imgDisp_bm.cols );   // Output point cloud
-//    Mat_< float > vec_tmp(4,1);
-//    size_t nk = 0;
-//    for(int y = 0; y < imgDisp_bm.rows; ++y) 
-//    {
-//        for(int x = 0; x < imgDisp_bm.cols; ++x) 
-//        {
-//            vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=imgDisp_bm.at< float >(y,x); vec_tmp(3)=1;
-//            vec_tmp = Q*vec_tmp;
-//            vec_tmp /= vec_tmp(3);
-////            Vec3f &point = XYZ.at< Vec3f >(y,x);
-////            point[0] = vec_tmp(0);
-////            point[1] = vec_tmp(1);
-////            point[2] = vec_tmp(2);
-//            cloud.points[nk].x = vec_tmp(0);
-//            cloud.points[nk].y = vec_tmp(1);
-//            cloud.points[nk].z = vec_tmp(2);
-//        }
-//    }
+        // Calculate X Y Z R G B values 3D point & mul Q
+    Vector4d vec_tmp;
+    Matrix4d Q_32F, Rx, Ry, Rz;
+    Q_32F << Q.at<double>(0, 0), Q.at<double>(0, 1), Q.at<double>(0, 2), Q.at<double>(0, 3),
+             Q.at<double>(1, 0), Q.at<double>(1, 1), Q.at<double>(1, 2), Q.at<double>(1, 3),
+             Q.at<double>(2, 0), Q.at<double>(2, 1), Q.at<double>(2, 2), Q.at<double>(2, 3),
+             Q.at<double>(3, 0), Q.at<double>(3, 1), Q.at<double>(3, 2), Q.at<double>(3, 3);
+    double fx = 24;
+    Rx << 1,  0,                    0,                   0,
+          0,  cos(fx * CV_PI / 180),  sin(fx * CV_PI / 180), 0,
+          0,  -sin(fx * CV_PI / 180), cos(fx * CV_PI / 180), 0,
+          0,  0,                    0,                   1;
+    double fy = 0;
+    Ry << cos(fy * CV_PI / 180),  0, -sin(fy * CV_PI / 180), 0,
+          0,                    1, 0,                    0,
+          sin(fy * CV_PI / 180),  0, cos(fy * CV_PI / 180),  0,
+          0,                    0, 0,                    1;
+    double fz = 7;
+    Rz << cos(fz * CV_PI / 180),  sin(fz * CV_PI / 180), 0, 0,
+          -sin(fz * CV_PI / 180), cos(fz * CV_PI / 180), 0, 0,
+          0,                    0,                   1, 0,
+          0,                    0,                   0, 1;
     
-    
-    for (size_t i = 0; i < cloud.points.size(); ++i)
+    unsigned nk = 0;
+    float lp = 800, wp = 200, hp = 20;
+    for(int y = 0; y < imgDisp_bm.rows; ++y) 
     {
-        cloud.points[i].x = points3D.at< Vec3f >(i)(0);
-        cloud.points[i].y = points3D.at< Vec3f >(i)(1);
-        cloud.points[i].z = points3D.at< Vec3f >(i)(2);
-//        cloud.points[i].r = static_cast< uint8_t >( MySFM.points3D_BGR.at(i)[2] );
-//        cloud.points[i].g = static_cast< uint8_t >( MySFM.points3D_BGR.at(i)[1] );
-//        cloud.points[i].b = static_cast< uint8_t >( MySFM.points3D_BGR.at(i)[0] );
-    }
-    
+        for(int x = 0; x < imgDisp_bm.cols; ++x) 
+        {
+            if ( imgDispNorm_bm.at< uchar >(y, x) )
+            {
+                vec_tmp(0) = x;
+                vec_tmp(1) = y;
+                vec_tmp(2) = double( imgDispNorm_bm.at< uchar >(y, x) );
+                vec_tmp(3) = 1;
+                vec_tmp = Rx * Ry * Rz * Q_32F * vec_tmp;
+                vec_tmp /= vec_tmp(3);
+                if ( ((vec_tmp(0) < double(-wp/4)) && (vec_tmp(0) > double(wp/4))) || 
+                     (vec_tmp(1) > double(hp + 3)) ||
+                     (vec_tmp(2) > 200) ) 
+                {
+                    vec_tmp(0) = 0;
+                    vec_tmp(1) = 0;
+                    vec_tmp(2) = 0;
+                }
+                cloud.points[nk].x = float(vec_tmp(0));
+                cloud.points[nk].y = float(vec_tmp(1));
+                cloud.points[nk].z = float(vec_tmp(2));
+                cloud.points[nk].r = imgRemap[0].at< Vec3b >(y, x)(2);
+                cloud.points[nk].g = imgRemap[0].at< Vec3b >(y, x)(1);
+                cloud.points[nk].b = imgRemap[0].at< Vec3b >(y, x)(0);
+                nk++;
+            }
+        }
+    }    
+        // Save & load 3D points fixle
     pcl::io::savePCDFileASCII ("Reconstruct_cloud.pcd", cloud);
     pcl::io::loadPCDFile("Reconstruct_cloud.pcd", *cloud2);  // test_pcd.pcd
+    cout << " --- 3D points cloud saved" << endl;
+        // Visualization 3D points
+    viewer->setBackgroundColor(0, 0, 0);
+    viewer->addCoordinateSystem(5.0, "global");
+    viewer->addPointCloud< pcl::PointXYZRGB >( cloud2, "sample cloud0", 0 );
+    viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud0" );
     
-    viewer->addPointCloud< pcl::PointXYZ >( cloud2, "sample cloud0", 0 );
-    viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud0" );
+// Plane 
+    cloud.height = 1;
+    cloud.width = unsigned(lp * wp);
+    cloud.is_dense = false;
+    cloud.points.resize( cloud.width * cloud.height );
+    nk = 0;
+    for ( unsigned i = 0; i < lp; i++ )
+    {
+        for ( unsigned j = 0; j < wp; j++ )
+        {
+            cloud.points[nk].x = float( (-wp/2 + j) /4 + j%4 );
+            cloud.points[nk].y = hp;
+            cloud.points[nk].z = float( i/8 + j%8 );
+            cloud.points[nk].r = 0;
+            cloud.points[nk].g = 100;
+            cloud.points[nk].b = 255;
+            nk++;
+        }
+    }
+    pcl::io::savePCDFileASCII ("Reconstruct_cloud.pcd", cloud);
+    pcl::io::loadPCDFile("Reconstruct_cloud.pcd", *cloud2);
+    viewer->addPointCloud< pcl::PointXYZRGB >( cloud2, "plane", 0 );
+    viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 4, "plane" );
     
     viewer->spin();
-    
+    cout << " --- --- END 3D VIZUALIZATION" << endl;
     
     return 0;
 }
