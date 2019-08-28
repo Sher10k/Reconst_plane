@@ -313,9 +313,11 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
 // --- SFM
     mtx[0](0, 2) = 772;
     mtx[0](1, 2) = 1050;
-    SFM_Reconstruction sterio_sfm( &img[0] );
-    sterio_sfm.Reconstruction3D( &img[1], &img[0], mtx[0] );
+    
+    SFM_Reconstruction sterio_sfm;
+    sterio_sfm.Reconstruct3D( &img[1], &img[0], mtx[0] );
     //sterio_sfm.Reconstruction3DopticFlow( &img[1], &img[0], mtx[0] );
+    
     sterio_sfm.R.copyTo( R );
     sterio_sfm.t.copyTo( t );            
     

@@ -1,33 +1,17 @@
 
 #include "Header/sfm_train.h"
 
-//SFM_Reconstruction::SFM_Reconstruction(VideoCapture *data_CAP)
-//{
-//    SFM_Reconstruction::setParam(data_CAP);
-//}
+//SFM_Reconstruction::SFM_Reconstruction( ){}
 
-SFM_Reconstruction::SFM_Reconstruction( Mat *frame )
-{
-    SFM_Reconstruction::setParam( frame );
-}
-
-void SFM_Reconstruction::setParam( Mat *frame)
-{
-    width_frame = frame->cols;
-    height_frame = frame->rows;
-    frame1 = Mat::zeros(Size(width_frame, height_frame), CV_8UC3);
-    frame2 = Mat::zeros(Size(width_frame, height_frame), CV_8UC3);
-    frame4 = Mat::zeros(Size(2 * width_frame, height_frame), CV_8UC3);
-    numKeypoints = 0;
-}
-
-void SFM_Reconstruction::Reconstruction3D(Mat *data_frame1, Mat *data_frame2, Matx33d K)
+void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx33d K_ )
 {
     //points3D *= 0;
     points3D.release();
     points3D_BGR.clear();
     R *= 0;
     t *= 0;
+    K[0] = K_;
+    K[1] = K_;
 //--- STEP 1 --- Detection and calculation
     keypoints1_SIFT.clear();
     keypoints2_SIFT.clear();
@@ -35,11 +19,11 @@ void SFM_Reconstruction::Reconstruction3D(Mat *data_frame1, Mat *data_frame2, Ma
     descriptors2_SIFT *= 0;
     
     int Xc = 751, Yc = 250;
-    Mat maskL = Mat::zeros( Size( width_frame, height_frame ), CV_8UC1 );
+    Mat maskL = Mat::zeros( frame[0].size(), CV_8UC1 );
     Mat maskR = maskL.clone();
-    for ( int i = 0; i < frame2.rows; i++ )
+    for ( int i = 0; i < frame[1].rows; i++ )
     {
-        for ( int j = 0; j < frame2.cols; j++ ) 
+        for ( int j = 0; j < frame[1].cols; j++ ) 
         {
             if ( j < Xc ) maskL.at< char >(i, j) = 1;
             else maskR.at< char >(i, j) = 1;
@@ -51,34 +35,34 @@ void SFM_Reconstruction::Reconstruction3D(Mat *data_frame1, Mat *data_frame2, Ma
     dpR *= 0;
     
     if (!data_frame1->empty()) {
-        data_frame1->copyTo(frame1);
+        (*data_frame1).copyTo(frame[0]);
 //        kpL.clear();
 //        kpR.clear();
         
-//        detectorSIFT->detectAndCompute( frame1, maskL, kpL, dpL );
-//        detectorSIFT->detectAndCompute( frame1, maskR, kpR, dpR );
+//        detectorSIFT->detectAndCompute( frame[0], maskL, kpL, dpL );
+//        detectorSIFT->detectAndCompute( frame[0], maskR, kpR, dpR );
 //        keypoints1_SIFT.reserve( kpL.size() + kpR.size() );
 //        keypoints1_SIFT.insert( keypoints1_SIFT.end(), kpL.begin(), kpL.end() );
 //        keypoints1_SIFT.insert( keypoints1_SIFT.end(), kpR.begin(), kpR.end() );
         
-        detectorSIFT->detectAndCompute(frame1, cv::noArray(), keypoints1_SIFT, descriptors1_SIFT);
+        detectorSIFT->detectAndCompute(frame[0], cv::noArray(), keypoints1_SIFT, descriptors1_SIFT);
     }
     if (!data_frame2->empty()) {
-        data_frame2->copyTo(frame2);
+        (*data_frame2).copyTo(frame[1]);
 //        kpL.clear();
 //        kpR.clear();
 //        dpL *= 0;
 //        dpR *= 0;
         
-//        detectorSIFT->detectAndCompute( frame2, maskL, kpL, dpL );
-//        detectorSIFT->detectAndCompute( frame2, maskR, kpR, dpR );
+//        detectorSIFT->detectAndCompute( frame[1], maskL, kpL, dpL );
+//        detectorSIFT->detectAndCompute( frame[1], maskR, kpR, dpR );
 //        keypoints1_SIFT.reserve( kpL.size() + kpR.size() );
 //        keypoints1_SIFT.insert( keypoints1_SIFT.end(), kpL.begin(), kpL.end() );
 //        keypoints1_SIFT.insert( keypoints1_SIFT.end(), kpR.begin(), kpR.end() );
 //        kpL.clear();
 //        kpR.clear();
         
-        detectorSIFT->detectAndCompute(frame2, cv::noArray(), keypoints2_SIFT, descriptors2_SIFT);
+        detectorSIFT->detectAndCompute(frame[1], cv::noArray(), keypoints2_SIFT, descriptors2_SIFT);
     }
 //--- STEP 2 --- Matcher keypoints
     good_matches.clear();
@@ -103,115 +87,123 @@ void SFM_Reconstruction::Reconstruction3D(Mat *data_frame1, Mat *data_frame2, Ma
 //--- STEP 3 --- Find essential matrix
         if (numKeypoints > 7)
         {
-            Essen_mask = Mat::ones( Size( 1, int(numKeypoints)), Essen_mask.type());
-            E = findEssentialMat(points1, points2, K, RANSAC, 0.999, 3.0, Essen_mask);
-            F = findFundamentalMat(points1, points2, FM_RANSAC, 3, 0.99, Essen_mask);
+            valid_mask = Mat::ones( Size( 1, int(numKeypoints)), valid_mask.type());
+            E = findEssentialMat(points1, points2, K[0], RANSAC, 0.999, 3.0, valid_mask);
+            F = findFundamentalMat(points1, points2, FM_RANSAC, 3, 0.99, valid_mask);
             correctMatches(F, points1, points2, points1, points2);
             
 //--- STEP 4 --- Decompose essential matrix
             Mat p3D;
             p3D *= 0;
-            recoverPose(E, points1, points2, K, R, t, 10, Essen_mask, p3D);
-            int numNoZeroMask = countNonZero(Essen_mask);
+            recoverPose(E, points1, points2, K[0], R, t, 10, valid_mask, p3D);
+            Rodrigues( R, r );
+            int numNoZeroMask = countNonZero(valid_mask);
             points3D = Mat::zeros( 4, numNoZeroMask, p3D.type() );
             
             int k = 0;
             for (int i = 0; i < p3D.cols; i++)
             {
-                if ( Essen_mask.at< uchar >(i) == 1 )
+                if ( valid_mask.at< uchar >(i) == 1 )
                 {
                     for (int j = 0; j < points3D.rows; j++)
                     {
                         points3D.at< double >(j, k) = p3D.at< double >(j, k) / p3D.at< double >(3, k);
                     }
-                    points3D_BGR.push_back( Scalar( (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[0] + 
-                                                     data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[0] ) / 2,
-                                                    (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[1] + 
-                                                     data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[1] ) / 2,
-                                                    (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[2] + 
-                                                     data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[2] ) / 2 ) );
+                    points3D_BGR.push_back( Scalar( (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[0] + 
+                                                     frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[0] ) / 2,
+                                                    (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[1] + 
+                                                     frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[1] ) / 2,
+                                                    (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[2] + 
+                                                     frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[2] ) / 2 ) );
                     k++;
                 }
             }
             
             FileStorage SFM_Result;
-            SFM_Result.open( "SFM_Result.txt", FileStorage::WRITE );
+            SFM_Result.open("SFM_Result.txt", FileStorage::WRITE);
             SFM_Result << "E" << E;
             SFM_Result << "F" << F;
             //SFM_Result << "points1" << points1;
             //SFM_Result << "points2" << points2;
-            SFM_Result << "K" << K;
+            SFM_Result << "K" << K[0];
             SFM_Result << "R" << R;
+            SFM_Result << "r" << r;
             SFM_Result << "t" << t;
             SFM_Result << "points3D" << points3D;
-            SFM_Result << "Essen_mask" << Essen_mask;
+            SFM_Result << "valid_mask" << valid_mask;
             SFM_Result.release();
             cout << " --- SFM_Result written into file: SFM_Result.txt" << endl;
             
-            drawMatches(frame1, good_points1, frame2, good_points2, good_matches, frame4);
+            drawMatches(frame[0], good_points1, frame[1], good_points2, good_matches, frame4);
             //imshow("SFM-result", frame4);
             imwrite("SFM-result.jpg", frame4);
             waitKey(10);
         } 
         else 
         {
-            if (!data_frame1->empty()) drawKeyPoints(&frame1, &keypoints1_SIFT);
-            if (!data_frame2->empty()) drawKeyPoints(&frame2, &keypoints2_SIFT);
-            Rect r1(0, 0, frame1.cols, frame1.rows);
-            Rect r2(frame2.cols, 0, frame2.cols, frame2.rows);
-            frame1.copyTo(frame4( r1 ));
-            frame2.copyTo(frame4( r2 ));
-            imshow("SFM-result", frame4);
+            if (!frame[0].empty()) drawKeyPoints(&frame[0], &keypoints1_SIFT);
+            if (!frame[1].empty()) drawKeyPoints(&frame[1], &keypoints2_SIFT);
+            Rect r1(0, 0, frame[0].cols, frame[0].rows);
+            Rect r2(frame[1].cols, 0, frame[1].cols, frame[1].rows);
+            frame[0].copyTo(frame4( r1 ));
+            frame[1].copyTo(frame4( r2 ));
+            //imshow("SFM-result", frame4);
+            imwrite("SFM-result.jpg", frame4);
             waitKey(10);
             cout << " --- Not enough keypoints" << endl;
         }
     } 
     else 
     {
-        if (!data_frame1->empty()) drawKeyPoints(&frame1, &keypoints1_SIFT);
-        if (!data_frame2->empty()) drawKeyPoints(&frame2, &keypoints2_SIFT);
-        Rect r1(0, 0, frame1.cols, frame1.rows);
-        Rect r2(frame2.cols, 0, frame2.cols, frame2.rows);
-        frame1.copyTo(frame4( r1 ));
-        frame2.copyTo(frame4( r2 ));
-        imshow("SFM-result", frame4);
+        if (!frame[0].empty()) drawKeyPoints(&frame[0], &keypoints1_SIFT);
+        if (!frame[1].empty()) drawKeyPoints(&frame[1], &keypoints2_SIFT);
+        Rect r1(0, 0, frame[0].cols, frame[0].rows);
+        Rect r2(frame[1].cols, 0, frame[1].cols, frame[1].rows);
+        frame[0].copyTo(frame4( r1 ));
+        frame[1].copyTo(frame4( r2 ));
+        //imshow("SFM-result", frame4);
+        imwrite("SFM-result.jpg", frame4);
         waitKey(10);
         cout <<" --- No keypoints found in one of the frames" << endl;
     }
 }
 
-void SFM_Reconstruction::Reconstruction3DopticFlow(Mat *data_frame1, Mat *data_frame2, Matx33d K)
+void SFM_Reconstruction::Reconstruct3DopticFlow( Mat *data_frame1, Mat *data_frame2, Matx33d K_ )
 {
     R *= 0;
     t *= 0;
-    Mat frame = Mat::zeros(Size(width_frame, height_frame), CV_8UC3);           // data_frame2->type()
-    flow = Mat::zeros(Size(width_frame, height_frame), CV_32FC2);
-    if ((!data_frame1->empty()) && (!data_frame2->empty()))
+    frame[0] = *data_frame1;
+    frame[1] = *data_frame2;
+    frame4 = Mat::zeros( frame[0].size(), CV_8UC3 );
+    flow = Mat::zeros( frame4.size(), CV_32FC2 );
+    K[0] = K_;
+    K[1] = K_;
+    if ( (!frame[0].empty()) && (!frame[1].empty()) )
     {
 //--- STEP 1 --- Calculate optical flow -------------------------------------//
         points1.clear();
         points2.clear();
         numKeypoints = 0;
         Mat fg1, fg2;
-        cvtColor( *data_frame1, fg1, COLOR_BGR2GRAY );
-        cvtColor( *data_frame2, fg2, COLOR_BGR2GRAY );
+        cvtColor( frame[0], fg1, COLOR_BGR2GRAY );
+        cvtColor( frame[1], fg2, COLOR_BGR2GRAY );
 //        imshow( "fg1", fg1 );
 //        imshow( "fg2", fg2 );
 //        waitKey(20);
         //calcOpticalFlowFarneback( fg1, fg2, flow, 0.9, 1, 12, 2, 8, 1.7, 0 );    // OPTFLOW_FARNEBACK_GAUSSIAN
         //calcOpticalFlowFarneback( fg1, fg2, flow, 0.6, 4, 5, 2, 3, 1.1, OPTFLOW_FARNEBACK_GAUSSIAN );
         //optflow::calcOpticalFlowSparseToDense( fg1, fg2, flow, 4, 128, 0.01f, true, 500.0f, 1.5f);
-        optflow::calcOpticalFlowSparseToDense( fg1, fg2, flow, 4, 128, 0.01f, true, 500.0f, 1.5f);
+        optflow::calcOpticalFlowSparseToDense( fg1, fg2, flow, 4, 256, 0.2f, true, 500.0f, 1.5f);
         
         int win = 3;
-        for (int y = 0; y < frame.rows; y += win) {
-            for (int x = 0; x < frame.cols; x += win) {
-                // get the flow from y, x position * 3 for better visibility
+        for (int y = 0; y < frame4.rows; y += win) {
+            for (int x = 0; x < frame4.cols; x += win) {
+                    // get the flow from y, x position * 3 for better visibility
                 const Point2f flowatxy = flow.at<Point2f>(y, x) * 1;
-                // draw line at flow direction
-                line(frame, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 200, 0));
-                // draw initial point
-                circle(frame, Point(x, y), 1, Scalar(0, 0, 0), -1);
+                    // draw line at flow direction
+                line(frame4, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 200, 0));
+                    // draw initial point
+                circle(frame4, Point(x, y), 1, Scalar(0, 0, 0), -1);
                 points1.push_back(Point2f(x, y));
                 points2.push_back(Point2f((x + flowatxy.x), (y + flowatxy.y)));
                 numKeypoints++;
@@ -221,8 +213,8 @@ void SFM_Reconstruction::Reconstruction3DopticFlow(Mat *data_frame1, Mat *data_f
         //waitKey(10);
         
 //--- STEP 2 --- Find essential matrix --------------------------------------//
-        Essen_mask = Mat::ones( Size( 1, int(numKeypoints)), Essen_mask.type());
-        E = findEssentialMat( points1, points2, K, RANSAC, 0.999, 3.0, Essen_mask );
+        valid_mask = Mat::ones( Size( 1, int(numKeypoints)), valid_mask.type());
+        E = findEssentialMat( points1, points2, K[0], RANSAC, 0.999, 3.0, valid_mask );
         F = findFundamentalMat( points1, points2, FM_RANSAC, 3, 0.99);
 //        correctMatches(F, points1, points2, points1, points2);
         
@@ -233,43 +225,44 @@ void SFM_Reconstruction::Reconstruction3DopticFlow(Mat *data_frame1, Mat *data_f
         points3D.release();
         points3D_BGR.clear();
         
-        recoverPose(E, points1, points2, K, R, t, 15, Essen_mask, p3D);
+        recoverPose(E, points1, points2, K[0], R, t, 15, valid_mask, p3D); // valid_mask
+        Rodrigues( R, r );
         
         int k = 0;
-        if ( maskf == 0) 
+        if ( maskf ) 
         {
-            points3D = p3D.clone();
-            for (int i = 0; i < points3D.cols; i++)
-            {
-                for (int j = 0; j < points3D.rows; j++) points3D.at< double >(j, i) /= points3D.at< double >(3, i);
-                points3D_BGR.push_back( Scalar( (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[0] + 
-                                                 data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[0] ) / 2,
-                                                (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[1] + 
-                                                 data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[1] ) / 2,
-                                                (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[2] + 
-                                                 data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[2] ) / 2 ) );
-            }
-        }
-        else 
-        {
-            int numNoZeroMask = countNonZero(Essen_mask);
+            int numNoZeroMask = countNonZero(valid_mask);
             points3D = Mat::zeros( 4, numNoZeroMask, p3D.type() );
             for (int i = 0; i < p3D.cols; i++)
             {
-                if ( Essen_mask.at< uchar >(i) == 1 )
+                if ( valid_mask.at< uchar >(i) == 1 )
                 {
                     for (int j = 0; j < points3D.rows; j++)
                     {
                         points3D.at< double >(j, k) = p3D.at< double >(j, i) / p3D.at< double >(3, i);
                     }
-                    points3D_BGR.push_back( Scalar( (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[0] + 
-                                                     data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[0] ) / 2,
-                                                    (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[1] + 
-                                                     data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[1] ) / 2,
-                                                    (data_frame1->at<Vec3b>(points1.at(static_cast<size_t>(i)))[2] + 
-                                                     data_frame2->at<Vec3b>(points2.at(static_cast<size_t>(i)))[2] ) / 2 ) );
+                    points3D_BGR.push_back( Scalar( (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[0] + 
+                                                     frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[0] ) / 2,
+                                                    (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[1] + 
+                                                     frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[1] ) / 2,
+                                                    (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[2] + 
+                                                     frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[2] ) / 2 ) );
                     k++;
                 }
+            }
+        }
+        else 
+        {
+            points3D = p3D.clone();
+            for (int i = 0; i < points3D.cols; i++)
+            {
+                for (int j = 0; j < points3D.rows; j++) points3D.at< double >(j, i) /= points3D.at< double >(3, i);
+                points3D_BGR.push_back( Scalar( (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[0] + 
+                                                 frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[0] ) / 2,
+                                                (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[1] + 
+                                                 frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[1] ) / 2,
+                                                (frame[0].at<Vec3b>(points1.at(static_cast<size_t>(i)))[2] + 
+                                                 frame[1].at<Vec3b>(points2.at(static_cast<size_t>(i)))[2] ) / 2 ) );
             }
         }
         
@@ -279,17 +272,17 @@ void SFM_Reconstruction::Reconstruction3DopticFlow(Mat *data_frame1, Mat *data_f
         SFM_Result << "F" << F;
         //SFM_Result << "points1" << points1;
         //SFM_Result << "points2" << points2;
-        SFM_Result << "K" << K;
+        SFM_Result << "K" << K[0];
         SFM_Result << "R" << R;
+        SFM_Result << "r" << r;
         SFM_Result << "t" << t;
         SFM_Result << "points3D" << points3D;
-        SFM_Result << "Essen_mask" << Essen_mask;
+        SFM_Result << "valid_mask" << valid_mask;
         SFM_Result.release();
         cout << " --- SFM_Result written into file: SFM_Result_opticflow.txt" << endl;
         
-        //resize( frame, frame, Size(640, 480), 0, 0, INTER_LINEAR );
-        //imshow("SFM-result", frame);
-        imwrite("SFM-result.jpg", frame);
+        resize( frame4, frame4, Size(640, 480), 0, 0, INTER_LINEAR );
+        imshow("SFM-result", frame4);
         waitKey(10);
     }
     else
@@ -298,28 +291,38 @@ void SFM_Reconstruction::Reconstruction3DopticFlow(Mat *data_frame1, Mat *data_f
     }
 }
 
-
-void SFM_Reconstruction::opticalFlow(Mat *f, Mat *fc, int win, int vecS)
+void SFM_Reconstruction::Reconstruct3Dstereo( Mat *data_frameL, Mat *data_frameR, Matx33d KL_, Matx33d KR_ )
 {
-    (*f).copyTo(img2Original);
-    //img2Original = *f;
-    flow = Mat(img2Original.cols, img2Original.rows, CV_32FC2);
-    cvtColor(*f, frameGREY, COLOR_BGR2GRAY);
-    cvtColor(*fc, frameCacheGREY, COLOR_BGR2GRAY);
-    //calcOpticalFlowFarneback(frameGREY, frameCacheGREY, flow, 0.9, 1, 12, 2, 8, 1.7, 0);//OPTFLOW_FARNEBACK_GAUSSIAN
-    optflow::calcOpticalFlowSparseToDense(frameGREY, frameCacheGREY, flow, 8, 128, 0.05f, true, 500.0f, 1.5f);
+    frame[0] = *data_frameL;
+    frame[1] = *data_frameR;
+    K[0] = KL_;
+    K[1] = KR_;
+}
+
+
+
+void SFM_Reconstruction::opticalFlow(Mat *data_frame1, Mat *data_frame2, int win, int vecS)
+{
+    (*data_frame1).copyTo(frameFlow);
+    //frameFlow = *data_frame1;
+    flow = Mat::zeros( frameFlow.size(), CV_32FC2 );
+    Mat frameGrey[2];
+    cvtColor(*data_frame1, frameGrey[0], COLOR_BGR2GRAY);
+    cvtColor(*data_frame2, frameGrey[1], COLOR_BGR2GRAY);
+    //calcOpticalFlowFarneback(frameGrey[0], frameGrey[1], flow, 0.9, 1, 12, 2, 8, 1.7, 0);//OPTFLOW_FARNEBACK_GAUSSIAN
+    optflow::calcOpticalFlowSparseToDense(frameGrey[0], frameGrey[1], flow, 8, 128, 0.05f, true, 500.0f, 1.5f);
     
     
     //cv::normalize(flow, flow, 1, 0, NORM_L2, -1, noArray());
     
-    for (int y = 0; y < img2Original.rows; y += win) {
-        for (int x = 0; x < img2Original.cols; x += win) {
+    for (int y = 0; y < frameFlow.rows; y += win) {
+        for (int x = 0; x < frameFlow.cols; x += win) {
             // get the flow from y, x position * 3 for better visibility
             const Point2f flowatxy = flow.at<Point2f>(y, x) * vecS;
             // draw line at flow direction
-            line(img2Original, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 200, 0));
+            line(frameFlow, Point(x, y), Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)), Scalar(255, 200, 0));
             // draw initial point
-            circle(img2Original, Point(x, y), 1, Scalar(0, 0, 0), -1);
+            circle(frameFlow, Point(x, y), 1, Scalar(0, 0, 0), -1);
         }
     }
 }
