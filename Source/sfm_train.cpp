@@ -34,7 +34,7 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
     dpL *= 0;
     dpR *= 0;
     
-    if (!data_frame1->empty()) {
+    if ( !data_frame1->empty() ) {
         (*data_frame1).copyTo(frame[0]);
 //        kpL.clear();
 //        kpR.clear();
@@ -47,7 +47,8 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
         
         detectorSIFT->detectAndCompute(frame[0], cv::noArray(), keypoints1_SIFT, descriptors1_SIFT);
     }
-    if (!data_frame2->empty()) {
+    else frame[0] = Mat::zeros( data_frame2->size(), CV_8UC3 );
+    if ( !data_frame2->empty() ) {
         (*data_frame2).copyTo(frame[1]);
 //        kpL.clear();
 //        kpR.clear();
@@ -64,6 +65,7 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
         
         detectorSIFT->detectAndCompute(frame[1], cv::noArray(), keypoints2_SIFT, descriptors2_SIFT);
     }
+    else frame[1] = Mat::zeros( data_frame1->size(), CV_8UC3 );
 //--- STEP 2 --- Matcher keypoints
     good_matches.clear();
     good_points1.clear();
@@ -71,6 +73,7 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
     points1.clear();
     points2.clear();
     numKeypoints = 0;
+    frame4 = Mat::zeros( Size( frame[0].cols + frame[1].cols, frame[0].rows ), CV_8UC3 );
     if ((keypoints1_SIFT.size() != 0) && (keypoints2_SIFT.size() != 0))
     {
         numKeypoints = Match_find_SIFT(keypoints1_SIFT,
@@ -135,8 +138,7 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
             cout << " --- SFM_Result written into file: SFM_Result.txt" << endl;
             
             drawMatches(frame[0], good_points1, frame[1], good_points2, good_matches, frame4);
-            //imshow("SFM-result", frame4);
-            imwrite("SFM-result.jpg", frame4);
+            imshow("SFM-result", frame4);
             waitKey(10);
         } 
         else 
@@ -147,8 +149,7 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
             Rect r2(frame[1].cols, 0, frame[1].cols, frame[1].rows);
             frame[0].copyTo(frame4( r1 ));
             frame[1].copyTo(frame4( r2 ));
-            //imshow("SFM-result", frame4);
-            imwrite("SFM-result.jpg", frame4);
+            imshow("SFM-result", frame4);
             waitKey(10);
             cout << " --- Not enough keypoints" << endl;
         }
@@ -161,8 +162,7 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame1, Mat *data_frame2, Matx
         Rect r2(frame[1].cols, 0, frame[1].cols, frame[1].rows);
         frame[0].copyTo(frame4( r1 ));
         frame[1].copyTo(frame4( r2 ));
-        //imshow("SFM-result", frame4);
-        imwrite("SFM-result.jpg", frame4);
+        imshow("SFM-result", frame4);
         waitKey(10);
         cout <<" --- No keypoints found in one of the frames" << endl;
     }
