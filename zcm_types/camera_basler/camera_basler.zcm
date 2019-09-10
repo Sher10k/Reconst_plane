@@ -1,0 +1,131 @@
+
+//=======================================================================================
+
+/// @struct ZcmCameraCalibratingParams
+/// @brief Калибровочные параметры для камеры...
+///
+struct ZcmCameraCalibratingParams
+{
+    float cam_mtx [3][3];
+    float distCoeff [5];
+    float rvec [3];
+    float tvec [3];
+}
+
+//=======================================================================================
+
+
+
+
+//=======================================================================================
+
+/// @struct ZcmCameraBaslerImagePresentation
+/// @brief Картинка.
+///
+/// @var ZcmCameraBaslerImagePresentation::width
+/// @brief ширина.
+/// @var ZcmCameraBaslerImagePresentation::height
+/// @brief высота.
+/// @var ZcmCameraBaslerImagePresentation::data
+/// @brief данные картинки.
+///
+/// @var ZcmCameraBaslerImagePresentation::bytes_per_line
+/// @brief Часто линии картинок выравниваются, переменная указывает какой реальный
+///        размер линии используется.
+///
+/// @var ZcmCameraBaslerImagePresentation::format
+/// @brief Формат задается строкой, но должен содержать фиксированные обозначения: \n
+///         Gray_8, RGB_888, BGR_888.
+///
+struct ZcmCameraBaslerImagePresentation
+{
+    int32_t     width;
+    int32_t     height;
+    int32_t     bytes_per_line;
+
+    string      format;
+
+    int32_t     data_size;
+    byte        data[data_size];
+}
+
+//=======================================================================================
+
+/// @struct ZcmCameraBaslerInformation
+/// @brief  Информация о камере-передатчике.
+///
+///
+/// @var   ZcmCameraBaslerInformation::user_defined_name
+/// @brief Из PylonIpConfigurator камере может быть присвоено имя, оно и передается.
+///
+/// @var   ZcmCameraBaslerInformation::location
+/// @brief Передается информация о местонахождении камеры.
+///        Предполагаются FrontLeft, FrontRight, RearLeft, RearRight.
+///
+struct ZcmCameraBaslerInformation
+{
+    string  serial_number;
+    string  user_defined_name;
+
+    ZcmCameraCalibratingParams  calibrating_params;
+}
+
+//=======================================================================================
+
+/// @struct ZcmCameraBaslerFrame
+/// @brief Принятый от камеры фрейм.
+///
+///
+/// @var ZcmCameraBaslerJpegFrame::synchronized
+/// @brief Флаг, подтверждающий попадание фрейма (с небольшой погрешностью) 
+///         на "временную сетку".
+///
+/// @var ZcmCameraBaslerJpegFrame::timestamp_ns
+/// @brief Метка времени, установленная камерой. Если PTP не "прогрелся", будет в
+///         районе 70-го года.
+///
+///
+struct ZcmCameraBaslerFrame
+{
+    ZcmCameraBaslerInformation          info;
+    ZcmCameraBaslerImagePresentation    image;
+    
+    boolean         synchronized;
+    int64_t         timestamp_ns;
+
+    ZcmService service;    
+}
+
+//=======================================================================================
+
+/// @struct ZcmCameraBaslerJpegFrame
+/// @brief Сжатый JPEG-ом кадр от камеры.
+///        Обычно это каждый N-ый принятый кадр для долгосрочного хранения.
+///
+///
+/// @var ZcmCameraBaslerJpegFrame::synchronized
+/// @brief Флаг, подтверждающий попадание фрейма (с небольшой погрешностью) 
+///         на "временную сетку".
+///
+/// @var ZcmCameraBaslerJpegFrame::timestamp_ns
+/// @brief Метка времени, установленная камерой. Если PTP не "прогрелся", будет в
+///         районе 70-го года.
+///
+/// @var ZcmCameraBaslerJpegFrame::jpeg
+/// @brief Сжатые данные. Их можно, например, сохранять в файлы с расширением .jpeg.
+///
+struct ZcmCameraBaslerJpegFrame
+{
+    ZcmCameraBaslerInformation  info;
+
+    boolean         synchronized;
+    int64_t         timestamp_ns;
+
+    int32_t         jpeg_size;
+    byte            jpeg [jpeg_size];
+
+    ZcmService      service;
+}
+
+//=======================================================================================
+

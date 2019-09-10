@@ -1,0 +1,16 @@
+/**
+ * @struct ZcmService
+ * @brief Служебное сообщение
+ * 
+ * @var ZcmService::u_timestamp
+ * @brief - время получения данных, микросекунды
+ *
+ * @var ZcmService::processing_time
+ * @brief - время обработки данных, микросекунды
+ * 
+ */
+struct ZcmService
+{
+	int64_t u_timestamp;
+	int32_t processing_time; 	
+}
