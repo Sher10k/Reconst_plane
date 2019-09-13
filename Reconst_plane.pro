@@ -34,30 +34,27 @@ INCLUDEPATH += /usr/local/include/vtk-8.2 \
                ../zcm_types/camera_basler/cpp_types \
                ../zcm_types/service/cpp_types
 
-# for PCL
-#PKGCONFIG   += pcl_2d-1.9
-#PKGCONFIG   += pcl_common-1.9
-#PKGCONFIG   += pcl_features-1.9
-#PKGCONFIG   += pcl_filters-1.9
-#PKGCONFIG   += pcl_geometry-1.9
-#PKGCONFIG   += pcl_io-1.9
-#PKGCONFIG   += pcl_kdtree-1.9
-#PKGCONFIG   += pcl_keypoints-1.9
-#PKGCONFIG   += pcl_ml-1.9
-#PKGCONFIG   += pcl_octree-1.9
-#PKGCONFIG   += pcl_outofcore-1.9
-#PKGCONFIG   += pcl_people-1.9
-#PKGCONFIG   += pcl_recognition-1.9
-#PKGCONFIG   += pcl_registration-1.9
-#PKGCONFIG   += pcl_sample_consensus-1.9
-#PKGCONFIG   += pcl_search-1.9
-#PKGCONFIG   += pcl_segmentation-1.9
-#PKGCONFIG   += pcl_stereo-1.9
-#PKGCONFIG   += pcl_surface-1.9
-#PKGCONFIG   += pcl_tracking-1.9
-#PKGCONFIG   += pcl_visualization-1.9
-
-INCLUDEPATH += /usr/local/include/vtk-8.0
+PKGCONFIG   *=  pcl_2d-1.9 \ 
+                pcl_geometry-1.9 \
+                pcl_ml-1.9\
+                pcl_recognition-1.9\
+                pcl_segmentation-1.9\
+                pcl_visualization-1.9\
+                pcl_common-1.9\
+                pcl_io-1.9\
+                pcl_octree-1.9\
+                pcl_registration-1.9\
+                pcl_stereo-1.9\
+                pcl_features-1.9\
+                pcl_kdtree-1.9\
+                pcl_outofcore-1.9\
+                pcl_sample_consensus-1.9\
+                pcl_surface-1.9\
+                pcl_filters-1.9\
+                pcl_keypoints-1.9\
+                pcl_people-1.9\
+                pcl_search-1.9\
+                pcl_tracking-1.9  
 
 LIBS += -lboost_system \
         -lvtkCommonCore-8.2 \
