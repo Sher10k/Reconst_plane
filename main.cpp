@@ -40,7 +40,7 @@ using namespace zcm;
 using namespace pcl;
 
 #define PCL_VISUAL true // Includes visualization: true, false
-#define WHT_VISUAL 1 // Visualize points using a depth map or SFM: 0 - DISP, 1 - SFM
+#define WHT_VISUAL 0 // Visualize points using a depth map or SFM: 0 - DISP, 1 - SFM
 
 struct Args
 {
@@ -326,13 +326,19 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     
         // Reprojects a disparity image to 3D space
     Mat points3D;
-    reprojectImageTo3D( imgDisp_bm, points3D, Q, false );   // imgDispNorm_bm imgDisp_bm
+    reprojectImageTo3D( imgDispNorm_bm, points3D, Q, false );   // imgDispNorm_bm imgDisp_bm
+//    for( size_t i = 0; i < points3D.total(); i++ )
+//    {
+//        points3D.at< Vec3f >( static_cast<int>(i) )[0] /= points3D.at< Vec3f >( static_cast<int>(i) )[3];
+//        points3D.at< Vec3f >( static_cast<int>(i) )[1] /= points3D.at< Vec3f >( static_cast<int>(i) )[3];
+//        points3D.at< Vec3f >( static_cast<int>(i) )[2] /= points3D.at< Vec3f >( static_cast<int>(i) )[3];
+//    }
     //cout << "Point3D = " << endl << points3D << endl;
     FileStorage Stereo_3D;
     Stereo_3D.open( "Stereo_3D.txt", FileStorage::WRITE );
     Stereo_3D << "Q" << Q;
     Stereo_3D << "imgDispNorm_bm" << imgDisp_bm;
-    Stereo_3D << "Point3D" << points3D;
+    Stereo_3D << "Points3D" << points3D;
     Stereo_3D.release();
 // --- END DEPTH MAP
     
@@ -376,22 +382,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
         // Calculate non zero elements in disparate map & creaye 3D points cloud
     cloud->height = 1;
 #if ( WHT_VISUAL == 0 )
-    unsigned noZero = 0;
-    vector < Scalar > points3D_BGR;
-    for ( int y = 0; y < imgDispNorm_bm.rows; y++ ) 
-    {
-        for ( int x = 0; x < imgDispNorm_bm.cols; x++ ) 
-        {
-            if ( imgDispNorm_bm.at< uchar >(y, x) )
-            {
-                noZero++;
-                points3D_BGR.push_back( Scalar( imgRemap[0].at< Vec3b >(y, x)[0],
-                                                imgRemap[0].at< Vec3b >(y, x)[1],
-                                                imgRemap[0].at< Vec3b >(y, x)[2] ) );
-            }
-        }
-    }
-    cloud->width = static_cast< unsigned int >( noZero );  // points3D.cols * points3D.rows
+    cloud->width = static_cast< unsigned int >( points3D.total() );  // points3D.total() noZero
 #elif ( WHT_VISUAL == 1 )
     cloud->width = static_cast< unsigned int >( stereo_sfm.points3D.cols );
 #endif    
@@ -423,15 +414,15 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     
     for (size_t i = 0; i < cloud->points.size(); ++i)
     {
-        Vector4d vec_tmp;
+        Vector4f vec_tmp;
 #if ( WHT_VISUAL == 0 )
-        vec_tmp << points3D.at< double >(0, static_cast<int>(i)),
-                   points3D.at< double >(1, static_cast<int>(i)),
-                   points3D.at< double >(2, static_cast<int>(i)),
-                   points3D.at< double >(3, static_cast<int>(i));
-        cloud->points[i].r = static_cast< uint8_t >( points3D_BGR.at(i)[2] );
-        cloud->points[i].g = static_cast< uint8_t >( points3D_BGR.at(i)[1] );
-        cloud->points[i].b = static_cast< uint8_t >( points3D_BGR.at(i)[0] );
+        vec_tmp << points3D.at< Vec3f >( static_cast<int>(i) )[0],
+                   points3D.at< Vec3f >( static_cast<int>(i) )[1],
+                   points3D.at< Vec3f >( static_cast<int>(i) )[2],
+                   points3D.at< Vec3f >( static_cast<int>(i) )[3];
+        cloud->points[i].r = imgRemap[0].at< Vec3b >( static_cast<int>(i) )[2];
+        cloud->points[i].g = imgRemap[0].at< Vec3b >( static_cast<int>(i) )[1];
+        cloud->points[i].b = imgRemap[0].at< Vec3b >( static_cast<int>(i) )[0];
 #elif ( WHT_VISUAL == 1 )
         vec_tmp << stereo_sfm.points3D.at< double >(0, static_cast<int>(i)),
                    stereo_sfm.points3D.at< double >(1, static_cast<int>(i)),
@@ -446,9 +437,9 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
              (abs(vec_tmp(1)) < 100) && 
              (abs(vec_tmp(2)) < 100) )
         {
-            cloud->points[i].x = float(vec_tmp(0));
-            cloud->points[i].y = float(vec_tmp(1));
-            cloud->points[i].z = float(vec_tmp(2));
+            cloud->points[i].x = vec_tmp(0);
+            cloud->points[i].y = vec_tmp(1);
+            cloud->points[i].z = vec_tmp(2);
         }
         else
         {
@@ -458,14 +449,26 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
         }
     }
     
-        // Save & load 3D points fixle
-    pcl::io::savePCDFileASCII ("Reconstruct_cloud.pcd", *cloud);    // test_pcd.pcd
+    // Save & load 3D points fixle
+#if ( WHT_VISUAL == 0 )
+    pcl::io::savePCDFileASCII("Reconstruct_cloud_DISP.pcd", *cloud);    // test_pcd.pcd
+#elif ( WHT_VISUAL == 1 )
+    pcl::io::savePCDFileASCII("Reconstruct_cloud_SFM.pcd", *cloud);    // test_pcd.pcd
+#endif      
     cout << " --- 3D points cloud saved" << endl;
+    
         // Visualization 3D points
     viewer->setBackgroundColor(0, 0, 0);
     viewer->addCoordinateSystem(5.0, "global");
     viewer->addPointCloud< pcl::PointXYZRGB >( cloud, "sample cloud0", 0 );
     viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud0" );
+#if ( WHT_VISUAL == 0 )
+    pcl::io::loadPCDFile("Reconstruct_cloud_SFM.pcd", *cloud);    // test_pcd.pcd
+#elif ( WHT_VISUAL == 1 )
+    pcl::io::loadPCDFile("Reconstruct_cloud_DISP.pcd", *cloud);    // test_pcd.pcd
+#endif 
+    viewer->addPointCloud< pcl::PointXYZRGB >( cloud, "sample cloud1", 0 );
+    viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud1" );
     
 // Plane 
 //    float lp = 800, wp = 200, hp = 20;
