@@ -78,17 +78,17 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame0, Mat *data_frame1, Matx
     frame4 = Mat::zeros( Size( frame[0].cols + frame[1].cols, frame[0].rows ), CV_8UC3 );
     if ((keypoints[0].size() != 0) && (keypoints[1].size() != 0))
     {
-        numKeypoints = Match_find_SIFT(keypoints[0],
-                                       keypoints[1],
-                                       descriptors[0],
-                                       descriptors[1],
-                                       &good_points[0],
-                                       &good_points[1],
-                                       &good_matches);
-        points[0].resize(numKeypoints);
-        points[1].resize(numKeypoints);
-        KeyPoint::convert(good_points[0], points[0]);     // Convert from KeyPoint to Point2f
-        KeyPoint::convert(good_points[1], points[1]);
+        numKeypoints = Match_find_SIFT( keypoints[0],
+                                        keypoints[1],
+                                        descriptors[0],
+                                        descriptors[1],
+                                        &good_points[0],
+                                        &good_points[1],
+                                        &good_matches );
+        points[0].resize( numKeypoints );
+        points[1].resize( numKeypoints );
+        KeyPoint::convert( good_points[0], points[0] );     // Convert from KeyPoint to Point2f
+        KeyPoint::convert( good_points[1], points[1] );
 //--- STEP 3 --- Find essential matrix
         if (numKeypoints > 7)
         {
@@ -100,7 +100,8 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame0, Mat *data_frame1, Matx
 //--- STEP 4 --- Decompose essential matrix
             Mat p3D;
             p3D *= 0;
-            recoverPose(E, points[0], points[1], K[0], R, t, 10, valid_mask, p3D);
+            recoverPose(E, points[0], points[1], K[0], R, t, 100, valid_mask, p3D);
+            
             Rodrigues( R, r );
             int numNoZeroMask = countNonZero(valid_mask);
             points3D = Mat::zeros( 4, numNoZeroMask, p3D.type() );
@@ -139,9 +140,10 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame0, Mat *data_frame1, Matx
             SFM_Result.release();
             cout << " --- SFM_Result written into file: SFM_Result.txt" << endl;
             
-            drawMatches(frame[0], good_points[0], frame[1], good_points[1], good_matches, frame4);
-            imshow("SFM-result", frame4);
-            waitKey(10);
+            drawMatches( frame[0], good_points[0], frame[1], good_points[1], good_matches, frame4 );
+//            imshow("SFM-result", frame4);
+//            waitKey(10);
+            imwrite( "SFM-result_keypoints.png", frame4 );
         } 
         else 
         {
@@ -151,8 +153,9 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame0, Mat *data_frame1, Matx
             Rect r2(frame[1].cols, 0, frame[1].cols, frame[1].rows);
             frame[0].copyTo(frame4( r1 ));
             frame[1].copyTo(frame4( r2 ));
-            imshow("SFM-result", frame4);
-            waitKey(10);
+//            imshow("SFM-result", frame4);
+//            waitKey(10);
+            imwrite( "SFM-result_keypoints.png", frame4 );
             cout << " --- Not enough keypoints" << endl;
         }
     } 
@@ -164,8 +167,9 @@ void SFM_Reconstruction::Reconstruct3D( Mat *data_frame0, Mat *data_frame1, Matx
         Rect r2(frame[1].cols, 0, frame[1].cols, frame[1].rows);
         frame[0].copyTo(frame4( r1 ));
         frame[1].copyTo(frame4( r2 ));
-        imshow("SFM-result", frame4);
-        waitKey(10);
+//        imshow("SFM-result", frame4);
+//        waitKey(10);
+        imwrite( "SFM-result_keypoints.png", frame4 );
         cout <<" --- No keypoints found in one of the frames" << endl;
     }
 }
@@ -316,7 +320,7 @@ void SFM_Reconstruction::Reconstruct3DopticFlow( Mat *data_frame0, Mat *data_fra
         frame4.copyTo( frameFlow );
         //resize( frame4, frame4, Size(640, 480), 0, 0, INTER_LINEAR );
         //imshow("SFM-result", frame4);
-        imwrite("SFM-result.png", frame4);
+        imwrite("SFM-result_opticflow.png", frame4);
         waitKey(10);
     }
     else

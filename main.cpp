@@ -40,7 +40,8 @@ using namespace zcm;
 using namespace pcl;
 
 #define PCL_VISUAL true // Includes visualization: true, false
-#define WHT_VISUAL 0 // Visualize points using a depth map or SFM: 0 - DISP, 1 - SFM
+#define WHT_VISUAL 1 // Visualize points using a depth map or SFM: 0 - DISP, 1 - SFM
+#define ADD_2_CLOUD 1 // Add two cloud for visialization 0 - NO, 1 - YES
 
 struct Args
 {
@@ -112,6 +113,11 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     string parametersDir = args.params;
     cout << " --- Folder with the parameters: \t" << parametersDir << endl;
     
+    size_t pos = input_filename.find_last_of('/');
+    cout << "Pos: " << pos << endl;
+    string filename = input_filename.substr( pos + 1, input_filename.length() - pos );
+    cout << endl << filename << endl;
+    
 // --- Read zcm log file
     LogFile *zcm_log;
     zcm_log = new LogFile( input_filename, "r" );
@@ -138,7 +144,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
             cout << "L " << tts << endl;
             zcm_msg.decode( event->data, 0, static_cast<unsigned>(event->datalen) );
             img[0] = imdecode( zcm_msg.jpeg, IMREAD_COLOR);
-            imwrite( "videoZCM_1908212042_L.jpg", img[0]);
+            imwrite( filename + "_L.png", img[0]);
             Lflag = true;
             
             if ( (temp_t_samp == tts) && (Lflag) && (Rflag) ) break;
@@ -151,7 +157,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
             cout << "R " << tts << endl;
             zcm_msg.decode( event->data, 0, static_cast<unsigned>(event->datalen) );
             img[1] = imdecode( zcm_msg.jpeg, IMREAD_COLOR);
-            imwrite( "videoZCM_1908212042_R.jpg", img[1]);
+            imwrite( filename + "_R.png", img[1]);  // videoZCM_1908212042_R.png
             Rflag = true;
             
             if ( (temp_t_samp == tts) && (Lflag) && (Rflag) ) break;
@@ -160,7 +166,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
         }
         //zcm_list.insert( event->channel );
     }
-    cout << " --- Same left & right files saved " << endl;
+    cout << " --- Same left & right files saved " << filename << "*.png" << endl;
 //    cout << "zcm_list: " << endl;
 //    for ( auto i : zcm_list )
 //        cout << "\t" << i << endl;
@@ -172,9 +178,9 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     cout << endl << " --- --- READ camera options" << endl;
     Matx < double, 3, 3 > mtx[2];
     Matx < double, 1, 5 > dist[2];
-    Matx < double, 3, 4 > projection[2];
-    Matx < double, 3, 3 > rectification[2];
-    Rect ROI[2];
+//    Matx < double, 3, 4 > projection[2];
+//    Matx < double, 3, 3 > rectification[2];
+//    Rect ROI[2];
     
 // --- Left camera options
     cout << " --- LEFT camera" << endl;
@@ -252,7 +258,7 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     stereoRectify( mtx[0], dist[0], 
                    mtx[1], dist[1], 
                    imageSize, 
-                   R.inv(), t,                // R.inv()
+                   R.inv(), -t,                // R.inv()
                    Rct[0], Rct[1], P[0], P[1], Q,   // output
                    CALIB_ZERO_DISPARITY, -1, 
                    imageSize, 
@@ -284,8 +290,8 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
             frameLR.at< Vec3b >(i, j)[2] = 255;
     putText( frameLR, "L", Point(5, 140), FONT_HERSHEY_SIMPLEX, 5, Scalar(255, 0, 0), 10);
     putText( frameLR, "R", Point(imgRemap[0].cols + 5, 140), FONT_HERSHEY_SIMPLEX, 5, Scalar(255, 0, 0), 10);
-    imwrite( "Remap_frame_LR.jpg", frameLR );
-    cout << " --- Same left & right rectify files saved Remap_frame_LR.jpg" << endl;
+    imwrite( "Remap_frame_LR.png", frameLR );
+    cout << " --- Same left & right rectify files saved Remap_frame_LR.png" << endl;
 // --- END SFM
     
 // --- DEPTH MAP
@@ -302,8 +308,8 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
                                                  StereoSGBM::MODE_SGBM_3WAY );   // mode MODE_SGBM
     resize( imgRemap[0], imgRemap[0], Size(1024,720), 0, 0, INTER_LINEAR );
     resize( imgRemap[1], imgRemap[1], Size(1024,720), 0, 0, INTER_LINEAR );
-    imwrite( "Remap_frame_L.jpg", imgRemap[0] );
-    imwrite( "Remap_frame_R.jpg", imgRemap[1] );
+    imwrite( "Remap_frame_L.png", imgRemap[0] );
+    imwrite( "Remap_frame_R.png", imgRemap[1] );
     Mat imgGrey[2]; 
     cvtColor( imgRemap[0], imgGrey[0], COLOR_BGR2GRAY);
     cvtColor( imgRemap[1], imgGrey[1], COLOR_BGR2GRAY);
@@ -412,14 +418,14 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
           0,                    0,                   1, 0,
           0,                    0,                   0, 1;
     
-    for (size_t i = 0; i < cloud->points.size(); ++i)
+    for ( size_t i = 0; i < cloud->points.size(); ++i )
     {
-        Vector4f vec_tmp;
+        Vector4d vec_tmp;
 #if ( WHT_VISUAL == 0 )
-        vec_tmp << points3D.at< Vec3f >( static_cast<int>(i) )[0],
-                   points3D.at< Vec3f >( static_cast<int>(i) )[1],
-                   points3D.at< Vec3f >( static_cast<int>(i) )[2],
-                   points3D.at< Vec3f >( static_cast<int>(i) )[3];
+        vec_tmp << static_cast< double >( points3D.at< Vec3f >( static_cast<int>(i) )[0] ),
+                   static_cast< double >( points3D.at< Vec3f >( static_cast<int>(i) )[1] ),
+                   static_cast< double >( points3D.at< Vec3f >( static_cast<int>(i) )[2] ),
+                   static_cast< double >( points3D.at< Vec3f >( static_cast<int>(i) )[3] );
         cloud->points[i].r = imgRemap[0].at< Vec3b >( static_cast<int>(i) )[2];
         cloud->points[i].g = imgRemap[0].at< Vec3b >( static_cast<int>(i) )[1];
         cloud->points[i].b = imgRemap[0].at< Vec3b >( static_cast<int>(i) )[0];
@@ -437,9 +443,9 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
              (abs(vec_tmp(1)) < 100) && 
              (abs(vec_tmp(2)) < 100) )
         {
-            cloud->points[i].x = vec_tmp(0);
-            cloud->points[i].y = vec_tmp(1);
-            cloud->points[i].z = vec_tmp(2);
+            cloud->points[i].x = static_cast< float >(vec_tmp(0));
+            cloud->points[i].y = static_cast< float >(vec_tmp(1));
+            cloud->points[i].z = static_cast< float >(vec_tmp(2));
         }
         else
         {
@@ -462,13 +468,17 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
     viewer->addCoordinateSystem(5.0, "global");
     viewer->addPointCloud< pcl::PointXYZRGB >( cloud, "sample cloud0", 0 );
     viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud0" );
-#if ( WHT_VISUAL == 0 )
+#if ( ADD_2_CLOUD == 1 )
+    #if ( WHT_VISUAL == 0 )
     pcl::io::loadPCDFile("Reconstruct_cloud_SFM.pcd", *cloud);    // test_pcd.pcd
-#elif ( WHT_VISUAL == 1 )
-    pcl::io::loadPCDFile("Reconstruct_cloud_DISP.pcd", *cloud);    // test_pcd.pcd
-#endif 
     viewer->addPointCloud< pcl::PointXYZRGB >( cloud, "sample cloud1", 0 );
     viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud1" );
+    #elif ( WHT_VISUAL == 1 )
+    pcl::io::loadPCDFile("Reconstruct_cloud_DISP.pcd", *cloud);    // test_pcd.pcd
+    viewer->addPointCloud< pcl::PointXYZRGB >( cloud, "sample cloud1", 0 );
+    viewer->setPointCloudRenderingProperties ( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud1" );
+    #endif 
+#endif
     
 // Plane 
 //    float lp = 800, wp = 200, hp = 20;
@@ -547,8 +557,8 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
 //    vector< Vec4i > lines[2];
 //    Canny( imgRemap[0], imgGrey[0], 10, 50, 3, false );
 //    Canny( imgRemap[1], imgGrey[1], 10, 50, 3, false );
-//    imwrite( "Canny_frame_L.jpg", imgGrey[0] );
-//    imwrite( "Canny_frame_R.jpg", imgGrey[1] );
+//    imwrite( "Canny_frame_L.png", imgGrey[0] );
+//    imwrite( "Canny_frame_R.png", imgGrey[1] );
 //    HoughLinesP( imgGrey[0], lines[0], 1, CV_PI/180, 80, 30, 10 );
 //    cvtColor( imgGrey[0], imgLine[0], COLOR_GRAY2BGR);
 //    imgLine[0] *= 0;
@@ -565,8 +575,8 @@ int main(int argc, char *argv[]) //int argc, char *argv[]
 //        line( imgLine[1], Point(lines[1][i][0], lines[1][i][1]),
 //        Point( lines[1][i][2], lines[1][i][3]), Scalar(0,0,255), 3, 8 );
 //    }
-//    imwrite( "Hough_frame_L.jpg", imgLine[0] );
-//    imwrite( "Hough_frame_R.jpg", imgLine[1] );
+//    imwrite( "Hough_frame_L.png", imgLine[0] );
+//    imwrite( "Hough_frame_R.png", imgLine[1] );
   
   
         // Projection matrix
